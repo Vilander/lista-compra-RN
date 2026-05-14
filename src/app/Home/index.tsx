@@ -9,7 +9,8 @@ import { Button } from '@/components/Button'
 
 import { style } from './style';
 import { FilterStatus } from '@/types/FilterStatus';
-import { ItemStorage } from '@/storage/itensStorage';
+import { ItemStorage, FnStorage } from '@/storage/itensStorage';
+//import { Color } from 'react-native/types_generated/Libraries/Animated/AnimatedExports';
 
 
 const FILTER_STATUS: FilterStatus[] = [FilterStatus.PENDING, FilterStatus.DONE]
@@ -19,7 +20,7 @@ export default function Home() {
   const [description, setDescription] = useState('')
   const [itens, setItens] = useState<ItemStorage[]>([])
 
-  function fnAdicionarItem(){
+  async function fnAdicionarItem(){
     if(!description.trim()){
       return Alert.alert("Adicionar", "Informe a descrição para adicionar.")
     }
@@ -28,8 +29,44 @@ export default function Home() {
       description: description, 
       status: FilterStatus.PENDING
     }
-    setItens([...itens, novoItem])
+
+    const reponseStorage = await FnStorage.add(novoItem)
+
+    // Alert.alert("Adicionado", `O item ${description} foi adicionado com sucesso!`)
+    setItens(reponseStorage)
+
+    setDescription('')
+
   }
+
+  async function itemByFilter() {
+    try{
+      const response = await FnStorage.getByFilter(filter)
+      setItens(response)
+
+    } catch(error){
+      Alert.alert("Error", "Não foi possível filtrar os itens")
+    }
+  }
+
+  function fnClear(){
+    Alert.alert("Limpar", "Atenção, deseja realmente limpar todos os itens?", [
+      {text:"NÃO", style: "cancel"},
+      {text:"SIM", onPress: ()=> {FnStorage.clear(); setItens([])}}
+    ])
+    
+  }
+
+  async function fnRemoveItem(id:string){
+    await FnStorage.remove(id)
+    itemByFilter()
+  }
+
+  useEffect(() => {
+    itemByFilter()
+    //console.log("entrou aqui")
+  },[filter])
+  
 
   return (
     <View style={style.container}>
@@ -59,7 +96,7 @@ export default function Home() {
             />
           ))}
 
-          <TouchableOpacity style={style.clearButton}>
+          <TouchableOpacity style={style.clearButton} onPress={fnClear}>
             <Text style={style.clearText}>Limpar</Text>
           </TouchableOpacity>
         </View>
@@ -68,7 +105,10 @@ export default function Home() {
         <FlatList
           data={itens}
           renderItem={({item})=>(
-            <Item data={item} />
+            <Item data={item} 
+              onRemove={() => fnRemoveItem(item.id)}
+            />
+            
           )}
           ListEmptyComponent={()=> 
             <Text style={style.empty}>Nenhum item encontrado!</Text>
